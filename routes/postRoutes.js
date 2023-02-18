@@ -1,42 +1,55 @@
-import express from 'express';
-import * as dotenv from 'dotenv';
-import { v2 as cloudinary } from 'cloudinary';
+/* eslint-disable arrow-body-style */
+import express from "express";
+import * as dotenv from "dotenv";
+// import { v2 as cloudinary } from "cloudinary";
+import fetch from "node-fetch";
 
-import Post from '../mongodb/models/post.js';
+// import Post from "../mongodb/models/post.js";
 
 dotenv.config();
 
 const router = express.Router();
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// cloudinary.config({
+//   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+//   api_key: process.env.CLOUDINARY_API_KEY,
+//   api_secret: process.env.CLOUDINARY_API_SECRET,
+// });
 
-router.route('/').get(async (req, res) => {
+const cleanUpData = (posts) => {
+  const { prompts, images } = posts;
+
+  const isInfinite = prompts && prompts.length > 0 ? true : false;
+
+  return images.map((image) => {
+    return {
+      ...image,
+      url: isInfinite
+        ? `https://lexica-serve-encoded-images2.sharif.workers.dev/full_jpg/${image.id}`
+        : image.src,
+      prompt: isInfinite
+        ? prompts.filter((prompt) => prompt.id === image.promptid)[0]
+        : { prompt: image.prompt },
+    };
+  });
+};
+
+router.route("/").get(async (req, res) => {
   try {
-    const posts = await Post.find({});
-    res.status(200).json({ success: true, data: posts });
+    const { q } = req.query;
+
+    const url = q
+      ? `https://lexica.art/api/v1/search?q=${q}`
+      : "https://lexica.art/api/infinite-prompts";
+
+    const response = await fetch(url);
+    const posts = await response.json();
+    res.status(200).json({ success: true, data: cleanUpData(posts) });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Fetching posts failed, please try again' });
-  }
-});
-
-router.route('/').post(async (req, res) => {
-  try {
-    const { name, prompt, photo } = req.body;
-    const photoUrl = await cloudinary.uploader.upload(photo);
-
-    const newPost = await Post.create({
-      name,
-      prompt,
-      photo: photoUrl.url,
+    res.status(500).json({
+      success: false,
+      message: "Fetching posts failed, please try again" + err,
     });
-
-    res.status(200).json({ success: true, data: newPost });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Unable to create a post, please try again' });
   }
 });
 
