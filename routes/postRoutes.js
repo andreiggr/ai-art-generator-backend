@@ -25,7 +25,7 @@ const cleanUpData = (posts) => {
     return {
       ...image,
       url: isInfinite
-        ? `https://lexica-serve-encoded-images2.sharif.workers.dev/full_jpg/${image.id}`
+        ? `https://lexica-serve-encoded-images2.sharif.workers.dev/md/${image.id}`
         : image.src,
       prompt: isInfinite
         ? prompts.filter((prompt) => prompt.id === image.promptid)[0]
